@@ -1,0 +1,667 @@
+<title>Graph Loom</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans+Text:wght@400;500;700&family=Roboto:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap">
+<style>
+  /* Chrome / Material-3 inspired theme */
+  :root{
+    --bg:#F1F3F4; --surface:#FFFFFF; --surface-2:#E8EAED;
+    --ink:#202124; --ink-soft:#5F6368; --border:#DADCE0; --border-strong:#BDC1C6;
+    --accent:#1A73E8; --accent-ink:#174EA6; --accent-soft:#E8F0FE;
+    --shadow: 0 1px 2px rgba(60,64,67,0.30), 0 1px 3px 1px rgba(60,64,67,0.15);
+    --group-0:#1A73E8; --group-1:#EA4335; --group-2:#34A853; --group-3:#FBBC04;
+    --group-4:#9334E6; --group-5:#00ACC1; --group-6:#5F6368; --group-7:#FF6D00;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#202124; --surface:#292A2D; --surface-2:#35363A;
+      --ink:#E8EAED; --ink-soft:#9AA0A6; --border:#3C4043; --border-strong:#5F6368;
+      --accent:#8AB4F8; --accent-ink:#D2E3FC; --accent-soft:#2A3B54;
+      --shadow: 0 1px 2px rgba(0,0,0,0.5), 0 2px 6px 2px rgba(0,0,0,0.4);
+      --group-0:#8AB4F8; --group-1:#F28B82; --group-2:#81C995; --group-3:#FDD663;
+      --group-4:#D7AEFB; --group-5:#78D9EC; --group-6:#9AA0A6; --group-7:#FCAD70;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#202124; --surface:#292A2D; --surface-2:#35363A;
+    --ink:#E8EAED; --ink-soft:#9AA0A6; --border:#3C4043; --border-strong:#5F6368;
+    --accent:#8AB4F8; --accent-ink:#D2E3FC; --accent-soft:#2A3B54;
+    --shadow: 0 1px 2px rgba(0,0,0,0.5), 0 2px 6px 2px rgba(0,0,0,0.4);
+    --group-0:#8AB4F8; --group-1:#F28B82; --group-2:#81C995; --group-3:#FDD663;
+    --group-4:#D7AEFB; --group-5:#78D9EC; --group-6:#9AA0A6; --group-7:#FCAD70;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--bg);color:var(--ink);font-family:"Google Sans Text","Roboto",ui-sans-serif,system-ui,sans-serif;}
+  .page{max-width:1500px;margin:0 auto;padding:32px 28px 60px;}
+  .eyebrow{font-family:"Roboto Mono",monospace;font-size:12px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin:0 0 8px;}
+  h1{font-size:clamp(24px,3vw,32px);font-weight:500;margin:0 0 8px;letter-spacing:0;font-family:"Google Sans Text",sans-serif;}
+  .dek{font-size:14.5px;color:var(--ink-soft);margin:0 0 20px;max-width:70ch;}
+
+  .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:24px;padding:10px 16px;box-shadow:var(--shadow);margin-bottom:14px;}
+  .btn{font-family:"Roboto",sans-serif;font-size:13.5px;font-weight:500;padding:8px 16px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--accent);cursor:pointer;transition:background .15s ease;}
+  .btn:hover{background:var(--accent-soft);}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .btn.primary:hover{background:var(--accent-ink);border-color:var(--accent-ink);}
+  .toolbar input[type=file]{display:none;}
+  .search-box{display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:8px 14px;margin-left:auto;}
+  .search-box input{border:none;outline:none;background:transparent;color:var(--ink);font-family:"Roboto",sans-serif;font-size:13.5px;width:170px;}
+  .search-box svg{color:var(--ink-soft);flex:none;}
+  #status{font-family:"Roboto Mono",monospace;font-size:11.5px;color:var(--ink-soft);}
+
+  .json-panel{display:none;margin-bottom:14px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px;box-shadow:var(--shadow);}
+  .json-panel.open{display:block;}
+  .json-panel textarea{width:100%;height:220px;background:var(--bg);border:1px solid var(--border);border-radius:10px;color:var(--ink);font-family:"Roboto Mono",monospace;font-size:12px;padding:12px;resize:vertical;}
+  .json-panel .row{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;align-items:center;}
+  .json-panel input[type=text],.json-panel select{font-family:"Roboto",sans-serif;font-size:13px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);}
+  #node-panel .row, #edge-panel .row{margin-top:0;}
+  #json-error{color:#D93025;font-size:12.5px;font-family:"Roboto",sans-serif;margin-top:6px;}
+
+  .layout{display:grid;grid-template-columns:1fr 280px;gap:14px;}
+  .canvas-wrap{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;position:relative;height:640px;}
+  #graph-svg{width:100%;height:100%;cursor:grab;}
+  #graph-svg:active{cursor:grabbing;}
+  .empty-hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;color:var(--ink-soft);font-size:13.5px;text-align:center;padding:20px;pointer-events:none;}
+  .node-hover-box{position:absolute;display:none;max-width:240px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;box-shadow:var(--shadow);font-family:"Roboto",sans-serif;font-size:12.5px;color:var(--ink);pointer-events:none;z-index:5;}
+  .node-hover-box b{display:block;margin-bottom:4px;}
+  .node-hover-box ul{margin:4px 0 0;padding-left:16px;color:var(--ink-soft);}
+  .node-hover-box li{margin-bottom:2px;}
+
+  .sidebar{display:flex;flex-direction:column;gap:12px;}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;box-shadow:var(--shadow);}
+  .panel h3{font-size:11.5px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 10px;font-family:"Roboto",sans-serif;}
+  .legend-item{display:flex;align-items:center;gap:8px;font-size:13px;padding:5px 6px;border-radius:8px;cursor:pointer;user-select:none;}
+  .legend-item:hover{background:var(--bg);}
+  .legend-item .dot{width:10px;height:10px;border-radius:50%;flex:none;}
+  .legend-item.off{opacity:.35;}
+  .legend-count{margin-left:auto;color:var(--ink-soft);font-size:11.5px;font-family:"Roboto Mono",monospace;}
+  #detail-empty{color:var(--ink-soft);font-size:13px;}
+  #detail-body{display:none;}
+  #detail-body .grp{display:inline-block;font-family:"Roboto",sans-serif;font-weight:500;font-size:10.5px;padding:3px 10px;border-radius:20px;margin-bottom:8px;}
+  #detail-body ul{margin:0 0 10px;padding-left:16px;font-size:12.5px;color:var(--ink-soft);}
+  #detail-body li{margin-bottom:3px;}
+  #detail-body li a.del-edge{margin-left:4px;text-decoration:none;color:var(--accent);}
+  .edit-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
+  .edit-row input{flex:1;min-width:70px;font-family:"Roboto",sans-serif;font-size:12.5px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--ink);}
+  #btn-delete-node{color:#D93025;border-color:#D93025;}
+
+  footer.note{margin-top:24px;font-size:12px;color:var(--ink-soft);max-width:80ch;}
+  footer.note code{background:var(--surface-2);padding:1px 5px;border-radius:4px;font-size:11.5px;}
+
+  @media (max-width: 900px){
+    .layout{grid-template-columns:1fr;}
+    .canvas-wrap{height:460px;}
+  }
+</style>
+
+<div class="page">
+  <p class="eyebrow">Generic Graph Viewer</p>
+  <h1>Graph Loom</h1>
+  <p class="dek">Paste or upload any graph — nodes and edges from any schema or database — and see it laid out as a live, force-directed knowledge graph. Drag nodes, scroll to zoom, search, filter by group, and edit the graph directly on the page.</p>
+  <div class="toolbar">
+    <button class="btn primary" id="btn-sample">Load Company Anatomy sample</button>
+    <button class="btn" id="btn-upload">Upload JSON file</button>
+    <input type="file" id="file-input" accept=".json,application/json">
+    <button class="btn" id="btn-edit">Paste / edit JSON</button>
+    <button class="btn" id="btn-add-node">+ Node</button>
+    <button class="btn" id="btn-add-edge">+ Edge</button>
+    <button class="btn" id="btn-export">Export JSON</button>
+    <span id="status"></span>
+    <label class="search-box">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="search-input" placeholder="Search nodes…">
+    </label>
+  </div>
+
+  <div class="json-panel" id="json-panel">
+    <textarea id="json-input" placeholder='Paste JSON here — either {"nodes":[{"id":"a","label":"A","group":"x"}],"edges":[{"source":"a","target":"b","label":"rel"}]}  or  {"actors":[...],"relationships":[...]} (the Company Anatomy schema shape)'></textarea>
+    <div class="row">
+      <button class="btn primary" id="btn-apply-json">Render this graph</button>
+      <span id="json-error"></span>
+    </div>
+  </div>
+
+  <div class="json-panel" id="node-panel">
+    <div class="row">
+      <input type="text" id="new-node-label" placeholder="Node label">
+      <input type="text" id="new-node-group" placeholder="Group (optional)">
+      <button class="btn primary" id="btn-create-node">Add node</button>
+    </div>
+  </div>
+
+  <div class="json-panel" id="edge-panel">
+    <div class="row">
+      <select id="edge-from"></select>
+      <span>→</span>
+      <select id="edge-to"></select>
+      <input type="text" id="new-edge-label" placeholder="Relationship label (optional)">
+      <button class="btn primary" id="btn-create-edge">Add edge</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="canvas-wrap">
+      <svg id="graph-svg"></svg>
+      <div class="empty-hint" id="empty-hint">Load the sample, upload a JSON file, or paste your own graph to begin.</div>
+      <div class="node-hover-box" id="node-hover-box"></div>
+    </div>
+    <div class="sidebar">
+      <div class="panel">
+        <h3>Groups</h3>
+        <div id="legend"></div>
+      </div>
+      <div class="panel">
+        <h3>Selected node</h3>
+        <div id="detail-empty">Click a node to inspect it.</div>
+        <div id="detail-body">
+          <span class="grp" id="d-group"></span>
+          <div id="d-id" style="font-size:11.5px;color:var(--ink-soft);margin:6px 0 10px;"></div>
+          <div class="edit-row"><input type="text" id="d-edit-label" placeholder="Label"></div>
+          <div class="edit-row"><input type="text" id="d-edit-group" placeholder="Group"><button class="btn" id="btn-save-node">Save</button></div>
+          <ul id="d-links"></ul>
+          <div class="edit-row">
+            <button class="btn" id="btn-pin-node">Pin to center</button>
+            <button class="btn" id="btn-delete-node">Delete node</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="note">
+    Expected shapes — generic: <code>{"nodes":[{"id","label","group"}],"edges":[{"source","target","label","group"}]}</code>. Any schema with actors/roles/relationships (e.g. the Company Anatomy shape) is auto-detected and converted. Add or delete nodes and edges, rename them, or regroup them directly on the page, then use <b>Export JSON</b> to get the edited graph back out. Layout runs entirely in your browser; nothing is uploaded anywhere.
+  </footer>
+</div>
+
+<script>
+(function(){
+  const svg = document.getElementById('graph-svg');
+  const emptyHint = document.getElementById('empty-hint');
+  const statusEl = document.getElementById('status');
+  const legendEl = document.getElementById('legend');
+  const jsonPanel = document.getElementById('json-panel');
+  const jsonInput = document.getElementById('json-input');
+  const jsonError = document.getElementById('json-error');
+  const nodePanel = document.getElementById('node-panel');
+  const edgePanel = document.getElementById('edge-panel');
+
+  let nodes = [], edges = [], groupOrder = [], hiddenGroups = new Set();
+  let selectedId = null;
+  let width = svg.clientWidth || 900, height = svg.clientHeight || 640;
+  let viewX = 0, viewY = 0, viewScale = 1;
+  let nextEdgeId = 0, nodeCounter = 0, dragNode = null;
+
+  const SAMPLE_URL_PLACEHOLDER = null; // sample is embedded below
+
+  const COMPANY_ANATOMY_SAMPLE = {"$schema": "company-anatomy/v1", "description": "Actors, sub-actors and relationships for a generic product-based company. Mirrors the Company Anatomy diagram.", "actors": [{"id": "leadership", "name": "Leadership", "category": "governance", "external": false, "roles": ["CEO", "Chief Product Officer", "CTO", "CFO / COO"]}, {"id": "build_product", "name": "Product", "category": "build", "external": false, "roles": ["Product Manager", "Product Designer", "UX Researcher", "Product Analyst"]}, {"id": "build_engineering", "name": "Engineering", "category": "build", "external": false, "roles": ["Backend Engineer", "Frontend Engineer", "Mobile Engineer", "QA / Test Engineer", "DevOps / SRE", "Security Engineer"]}, {"id": "build_data", "name": "Data & Analytics", "category": "build", "external": false, "roles": ["Data Engineer", "Data Scientist / ML", "BI Analyst"]}, {"id": "gtm_marketing", "name": "Marketing", "category": "gtm", "external": false, "roles": ["Content Marketer", "Growth Marketer", "Brand & PR", "SEO / ASO"]}, {"id": "gtm_sales", "name": "Sales", "category": "gtm", "external": false, "roles": ["SDR / BDR", "Account Executive", "Sales Engineer"]}, {"id": "retention_cs", "name": "Customer Success", "category": "retention", "external": false, "roles": ["Onboarding Specialist", "Account Manager", "Renewals Manager"]}, {"id": "retention_support", "name": "Support", "category": "retention", "external": false, "roles": ["Support Agent", "Technical Support Engineer", "Community Manager"]}, {"id": "enabling", "name": "Enabling Functions", "category": "enabling", "external": false, "roles": ["Finance & Accounting", "HR / People Ops", "Legal & Compliance", "IT / Workplace Ops"]}, {"id": "investors_board", "name": "Investors & Board", "category": "capital", "external": true, "roles": ["Board of Directors", "Investors / VCs"]}, {"id": "market_customers", "name": "Market & Customers", "category": "market", "external": true, "roles": ["Prospects & Leads", "End Users", "Paying Customers", "Direct Competitors"]}, {"id": "ecosystem_partners", "name": "Ecosystem & Partners", "category": "ecosystem", "external": true, "roles": ["Cloud & Infra Vendors", "Integration Partners", "Channel / Reseller Partners"]}, {"id": "regulatory", "name": "Regulatory Context", "category": "external", "external": true, "roles": ["Regulators", "Industry Compliance Bodies"]}], "relationships": [{"source": "investors_board", "target": "leadership", "label": "capital & board oversight", "type": "gov"}, {"source": "leadership", "target": "investors_board", "label": "performance reporting", "type": "gov"}, {"source": "leadership", "target": "enabling", "label": "steers & resources every band", "type": "gov"}, {"source": "build_engineering", "target": "gtm_sales", "label": "ships the product", "type": "flow"}, {"source": "gtm_sales", "target": "retention_cs", "label": "hands off closed accounts", "type": "flow"}, {"source": "retention_support", "target": "build_product", "label": "feature requests & bug reports", "type": "flow"}, {"source": "market_customers", "target": "build_product", "label": "usage data & feedback", "type": "flow"}, {"source": "market_customers", "target": "gtm_marketing", "label": "demand & signups", "type": "flow"}, {"source": "gtm_sales", "target": "market_customers", "label": "deals closed & delivered", "type": "flow"}, {"source": "market_customers", "target": "retention_support", "label": "support requests \u21c4 resolutions", "type": "flow"}, {"source": "market_customers", "target": "gtm_marketing", "label": "competitive pressure", "type": "ext", "note": "from the Direct Competitors role specifically", "dashed": true}, {"source": "ecosystem_partners", "target": "build_engineering", "label": "infrastructure, APIs & tools", "type": "eco"}, {"source": "ecosystem_partners", "target": "gtm_sales", "label": "referred deals & co-selling", "type": "eco"}, {"source": "regulatory", "target": "enabling", "label": "compliance requirements", "type": "ext", "dashed": true}], "relationship_types": {"gov": "Governance & capital", "flow": "Product & market flow", "eco": "Ecosystem & resources", "ext": "External pressure"}};
+
+  function ns(tag){ return document.createElementNS('http://www.w3.org/2000/svg', tag); }
+
+  function normalize(raw){
+    if (raw && Array.isArray(raw.nodes) && Array.isArray(raw.edges)){
+      return {
+        nodes: raw.nodes.map(n => ({ id: String(n.id), label: n.label || String(n.id), group: n.group || 'default' })),
+        edges: raw.edges.map(e => ({ source: String(e.source), target: String(e.target), label: e.label || '', group: e.group || e.type || 'default', dashed: !!e.dashed }))
+      };
+    }
+    if (raw && Array.isArray(raw.actors)){
+      const n = [], e = [];
+      raw.actors.forEach(a => {
+        n.push({ id: a.id, label: a.name, group: a.category || 'actor' });
+        (a.roles || []).forEach((r, i) => {
+          const rid = a.id + '::role::' + i;
+          n.push({ id: rid, label: r, group: 'role' });
+          e.push({ source: a.id, target: rid, label: 'has role', group: 'role' });
+        });
+      });
+      (raw.relationships || []).forEach(r => {
+        e.push({ source: r.source, target: r.target, label: r.label || '', group: r.type || 'default', dashed: !!r.dashed });
+      });
+      return { nodes: n, edges: e };
+    }
+    throw new Error('Unrecognized JSON shape — expected {nodes,edges} or {actors,relationships}.');
+  }
+
+  function loadGraph(raw){
+    const g = normalize(raw);
+    const idSet = new Set(g.nodes.map(n => n.id));
+    g.edges = g.edges.filter(e => idSet.has(e.source) && idSet.has(e.target));
+
+    groupOrder = [...new Set(g.nodes.map(n => n.group))];
+    hiddenGroups = new Set();
+
+    width = svg.clientWidth || 900; height = svg.clientHeight || 640;
+    nodes = g.nodes.map((n, i) => {
+      const angle = (i / g.nodes.length) * Math.PI * 2;
+      const r = Math.min(width, height) * 0.3;
+      return { ...n, x: width/2 + Math.cos(angle)*r, y: height/2 + Math.sin(angle)*r, vx: 0, vy: 0 };
+    });
+    const byId = Object.fromEntries(nodes.map(n => [n.id, n]));
+    edges = g.edges.map((e, i) => ({ ...e, s: byId[e.source], t: byId[e.target], _eid: i }));
+    nextEdgeId = edges.length;
+
+    selectedId = null;
+    selectNode(null);
+    renderLegend();
+    buildScene();
+    emptyHint.style.display = 'none';
+    statusEl.textContent = nodes.length + ' nodes · ' + edges.length + ' edges · ' + groupOrder.length + ' groups';
+    startSim();
+  }
+
+  // re-render everything after an edit (add/delete/rename node or edge)
+  function refreshScene(){
+    groupOrder = [...new Set(nodes.map(n => n.group))];
+    hiddenGroups = new Set([...hiddenGroups].filter(g => groupOrder.includes(g)));
+    renderLegend();
+    buildScene();
+    applyVisibility();
+    statusEl.textContent = nodes.length + ' nodes · ' + edges.length + ' edges · ' + groupOrder.length + ' groups';
+    startSim();
+  }
+
+  function groupVar(g){
+    const idx = groupOrder.indexOf(g) % 8;
+    return 'var(--group-' + idx + ')';
+  }
+
+  function renderLegend(){
+    legendEl.innerHTML = '';
+    groupOrder.forEach(g => {
+      const count = nodes.filter(n => n.group === g).length;
+      const row = document.createElement('div');
+      row.className = 'legend-item';
+      row.innerHTML = '<span class="dot" style="background:' + groupVar(g) + '"></span>' +
+        '<span>' + g + '</span><span class="legend-count">' + count + '</span>';
+      row.addEventListener('click', () => {
+        if (hiddenGroups.has(g)) hiddenGroups.delete(g); else hiddenGroups.add(g);
+        row.classList.toggle('off', hiddenGroups.has(g));
+        applyVisibility();
+      });
+      legendEl.appendChild(row);
+    });
+  }
+
+  let edgeEls = [], nodeEls = [];
+  function buildScene(){
+    svg.innerHTML = '';
+    const defs = ns('defs');
+    defs.innerHTML = '<marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"></path></marker>';
+    svg.appendChild(defs);
+    const gRoot = ns('g'); gRoot.setAttribute('id', 'scene');
+    svg.appendChild(gRoot);
+    const edgeLayer = ns('g'); const labelLayer = ns('g'); const nodeLayer = ns('g');
+    gRoot.appendChild(edgeLayer); gRoot.appendChild(labelLayer); gRoot.appendChild(nodeLayer);
+
+    edgeEls = edges.map(e => {
+      const line = ns('line');
+      line.setAttribute('stroke', 'var(--border-strong)');
+      line.setAttribute('stroke-width', '1.2');
+      line.setAttribute('opacity', '0.6');
+      line.setAttribute('marker-end', 'url(#arrowhead)');
+      if (e.dashed) line.setAttribute('stroke-dasharray', '4,3');
+      edgeLayer.appendChild(line);
+
+      // invisible wide hit-line so hovering near the thin edge still
+      // triggers the label - the thin visible line is a hard target
+      const hitLine = ns('line');
+      hitLine.setAttribute('stroke', '#000');
+      hitLine.setAttribute('opacity', '0');
+      hitLine.setAttribute('stroke-width', '14');
+      hitLine.setAttribute('pointer-events', 'stroke');
+      hitLine.style.cursor = 'pointer';
+      edgeLayer.appendChild(hitLine);
+
+      let label = null;
+      // skip the auto-generated "has role" edges - they're structural, not
+      // the relationships the user actually wants to read on the graph
+      if (e.label && e.group !== 'role') {
+        label = ns('text');
+        label.textContent = e.label;
+        label.setAttribute('font-size', '9.5');
+        label.setAttribute('font-family', 'IBM Plex Sans Condensed, sans-serif');
+        label.setAttribute('fill', 'var(--ink-soft)');
+        label.setAttribute('text-anchor', 'middle');
+        label.setAttribute('paint-order', 'stroke');
+        label.setAttribute('stroke', 'var(--surface)');
+        label.setAttribute('stroke-width', '3');
+        // hidden until hover/tap on the edge - no permanent text on the graph
+        label.style.opacity = '0';
+        label.style.transition = 'opacity .12s';
+        label.style.pointerEvents = 'none';
+        labelLayer.appendChild(label);
+        const showLabel = () => { label.style.opacity = '1'; };
+        const hideLabel = () => { label.style.opacity = '0'; };
+        hitLine.addEventListener('mouseenter', showLabel);
+        hitLine.addEventListener('mouseleave', hideLabel);
+        hitLine.addEventListener('click', (ev) => { ev.stopPropagation(); showLabel(); });
+      }
+      return { e, line, hitLine, label };
+    });
+
+    nodeEls = nodes.map(n => {
+      const g = ns('g');
+      g.style.cursor = 'pointer';
+      const circle = ns('circle');
+      circle.setAttribute('r', n.group === 'role' ? 5 : 9);
+      circle.setAttribute('fill', groupVar(n.group));
+      circle.setAttribute('stroke', 'var(--surface)');
+      circle.setAttribute('stroke-width', '1.5');
+      const text = ns('text');
+      text.textContent = n.label;
+      text.setAttribute('font-size', '10.5');
+      text.setAttribute('font-family', 'IBM Plex Sans Condensed, sans-serif');
+      text.setAttribute('fill', 'var(--ink)');
+      text.setAttribute('x', 12); text.setAttribute('y', 4);
+      g.appendChild(circle); g.appendChild(text);
+      nodeLayer.appendChild(g);
+
+      g.addEventListener('mousedown', (ev) => {
+        dragNode = n; n.fx = n.x; n.fy = n.y;
+        ev.stopPropagation();
+        selectNode(n.id);
+      });
+      g.addEventListener('mouseenter', (ev) => showNodeBox(n, ev));
+      g.addEventListener('mouseleave', hideNodeBox);
+      g.addEventListener('touchstart', (ev) => showNodeBox(n, ev.touches[0]));
+      return { n, g, circle, text };
+    });
+  }
+
+  // single set of window listeners for node dragging, regardless of how many
+  // times buildScene() rebuilds the DOM (editing rebuilds it often)
+  window.addEventListener('mousemove', (ev) => {
+    if (!dragNode) return;
+    const pt = screenToWorld(ev.clientX, ev.clientY);
+    dragNode.x = pt.x; dragNode.y = pt.y; dragNode.fx = pt.x; dragNode.fy = pt.y;
+  });
+  window.addEventListener('mouseup', () => {
+    // a pinned node keeps its fixed position after drag ends; only an
+    // unpinned node goes back to floating freely under the simulation
+    if (dragNode && !dragNode.pinned) { delete dragNode.fx; delete dragNode.fy; }
+    dragNode = null;
+  });
+  window.addEventListener('touchend', hideNodeBox);
+
+  function screenToWorld(clientX, clientY){
+    const rect = svg.getBoundingClientRect();
+    return { x: (clientX - rect.left - viewX) / viewScale, y: (clientY - rect.top - viewY) / viewScale };
+  }
+
+  function applyVisibility(){
+    nodeEls.forEach(({n, g}) => { g.style.display = hiddenGroups.has(n.group) ? 'none' : ''; });
+    edgeEls.forEach(({e, line, hitLine, label}) => {
+      const hide = hiddenGroups.has(e.s.group) || hiddenGroups.has(e.t.group);
+      line.style.display = hide ? 'none' : '';
+      hitLine.style.display = hide ? 'none' : '';
+      if (label) label.style.display = hide ? 'none' : '';
+    });
+  }
+
+  // hover/tap-only info box - the diagram itself carries no permanent text
+  // beyond the node label; relationships only appear while hovering/tapping
+  function showNodeBox(n, ev){
+    const box = document.getElementById('node-hover-box');
+    const wrap = box.parentElement.getBoundingClientRect();
+    const links = edges.filter(e => e.source === n.id || e.target === n.id);
+    const list = links.map(l => {
+      const other = l.source === n.id ? l.t : l.s;
+      const dir = l.source === n.id ? '→' : '←';
+      return '<li>' + dir + ' <b>' + (other ? other.label : '?') + '</b>' + (l.label ? ' — ' + l.label : '') + '</li>';
+    }).join('') || '<li>No connections.</li>';
+    box.innerHTML = '<b>' + n.label + '</b><ul>' + list + '</ul>';
+    box.style.display = 'block';
+    let left = ev.clientX - wrap.left + 14, top = ev.clientY - wrap.top + 14;
+    left = Math.min(left, wrap.width - box.offsetWidth - 8);
+    top = Math.min(top, wrap.height - box.offsetHeight - 8);
+    box.style.left = Math.max(4, left) + 'px';
+    box.style.top = Math.max(4, top) + 'px';
+  }
+  function hideNodeBox(){
+    document.getElementById('node-hover-box').style.display = 'none';
+  }
+
+  function selectNode(id){
+    selectedId = id;
+    const n = nodes.find(x => x.id === id);
+    document.getElementById('detail-empty').style.display = n ? 'none' : '';
+    document.getElementById('detail-body').style.display = n ? 'block' : 'none';
+    if (!n) return;
+    document.getElementById('d-id').textContent = n.id;
+    document.getElementById('d-edit-label').value = n.label;
+    document.getElementById('d-edit-group').value = n.group;
+    document.getElementById('btn-pin-node').textContent = n.pinned ? 'Unpin from center' : 'Pin to center';
+    const grpEl = document.getElementById('d-group');
+    grpEl.textContent = n.group;
+    grpEl.style.background = groupVar(n.group);
+    grpEl.style.color = 'var(--surface)';
+    const links = edges.filter(e => e.source === id || e.target === id);
+    document.getElementById('d-links').innerHTML = links.map(l => {
+      const other = l.source === id ? l.t : l.s;
+      const dir = l.source === id ? '→' : '←';
+      return '<li>' + dir + ' <b>' + (other ? other.label : '?') + '</b>' + (l.label ? ' — ' + l.label : '') +
+        ' <a href="#" class="del-edge" data-eid="' + l._eid + '" title="Delete this edge">×</a></li>';
+    }).join('') || '<li>No connections.</li>';
+    document.querySelectorAll('#d-links .del-edge').forEach(a => {
+      a.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        const eid = Number(a.dataset.eid);
+        edges = edges.filter(e => e._eid !== eid);
+        refreshScene();
+        selectNode(id);
+      });
+    });
+    nodeEls.forEach(({n: nn, circle}) => {
+      circle.setAttribute('stroke', nn.id === id ? 'var(--accent)' : 'var(--surface)');
+      circle.setAttribute('stroke-width', nn.id === id ? '3' : '1.5');
+    });
+  }
+
+  // --- force simulation ---
+  let simRaf = null;
+  function startSim(){
+    if (simRaf) cancelAnimationFrame(simRaf);
+    let ticks = 0;
+    function tick(){
+      const n = nodes.length || 1;
+      const repel = Math.min(2600, 60000 / n);
+      for (let i = 0; i < nodes.length; i++){
+        for (let j = i+1; j < nodes.length; j++){
+          const a = nodes[i], b = nodes[j];
+          let dx = a.x - b.x, dy = a.y - b.y;
+          let dist2 = dx*dx + dy*dy || 0.01;
+          if (dist2 > 40000) continue;
+          const dist = Math.sqrt(dist2);
+          const f = repel / dist2;
+          const fx = (dx/dist) * f, fy = (dy/dist) * f;
+          a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy;
+        }
+      }
+      edges.forEach(e => {
+        const a = e.s, b = e.t;
+        if (!a || !b) return;
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const dist = Math.sqrt(dx*dx+dy*dy) || 0.01;
+        const ideal = 90;
+        const f = (dist - ideal) * 0.02;
+        const fx = (dx/dist) * f, fy = (dy/dist) * f;
+        a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy;
+      });
+      nodes.forEach(n => {
+        n.vx += (width/2 - n.x) * 0.0025;
+        n.vy += (height/2 - n.y) * 0.0025;
+        n.vx *= 0.82; n.vy *= 0.82;
+        if (n.fx !== undefined){ n.x = n.fx; n.y = n.fy; n.vx = 0; n.vy = 0; }
+        else { n.x += n.vx; n.y += n.vy; }
+      });
+      nodeEls.forEach(({n, g}) => { g.setAttribute('transform', 'translate(' + n.x.toFixed(1) + ',' + n.y.toFixed(1) + ')'); });
+      edgeEls.forEach(({e, line, hitLine, label}) => {
+        line.setAttribute('x1', e.s.x); line.setAttribute('y1', e.s.y);
+        line.setAttribute('x2', e.t.x); line.setAttribute('y2', e.t.y);
+        hitLine.setAttribute('x1', e.s.x); hitLine.setAttribute('y1', e.s.y);
+        hitLine.setAttribute('x2', e.t.x); hitLine.setAttribute('y2', e.t.y);
+        if (label) {
+          const mx = (e.s.x + e.t.x) / 2, my = (e.s.y + e.t.y) / 2;
+          let angle = Math.atan2(e.t.y - e.s.y, e.t.x - e.s.x) * 180 / Math.PI;
+          if (angle > 90 || angle < -90) angle += 180; // keep text upright, never upside down
+          label.setAttribute('x', mx); label.setAttribute('y', my - 3);
+          label.setAttribute('transform', 'rotate(' + angle.toFixed(1) + ',' + mx.toFixed(1) + ',' + my.toFixed(1) + ')');
+        }
+      });
+      ticks++;
+      if (ticks < 400) simRaf = requestAnimationFrame(tick);
+    }
+    tick();
+  }
+
+  // pan & zoom
+  let panning = false, panStart = {x:0,y:0}, viewStart = {x:0,y:0};
+  svg.addEventListener('mousedown', (ev) => {
+    if (ev.target !== svg) return;
+    panning = true; panStart = {x: ev.clientX, y: ev.clientY}; viewStart = {x: viewX, y: viewY};
+  });
+  window.addEventListener('mousemove', (ev) => {
+    if (!panning) return;
+    viewX = viewStart.x + (ev.clientX - panStart.x);
+    viewY = viewStart.y + (ev.clientY - panStart.y);
+    applyTransform();
+  });
+  window.addEventListener('mouseup', () => panning = false);
+  svg.addEventListener('wheel', (ev) => {
+    ev.preventDefault();
+    const rect = svg.getBoundingClientRect();
+    const mx = ev.clientX - rect.left, my = ev.clientY - rect.top;
+    const prevScale = viewScale;
+    viewScale = Math.max(0.25, Math.min(3, viewScale * (ev.deltaY < 0 ? 1.1 : 0.9)));
+    viewX = mx - (mx - viewX) * (viewScale/prevScale);
+    viewY = my - (my - viewY) * (viewScale/prevScale);
+    applyTransform();
+  }, { passive: false });
+  function applyTransform(){
+    const scene = document.getElementById('scene');
+    if (scene) scene.setAttribute('transform', 'translate(' + viewX + ',' + viewY + ') scale(' + viewScale + ')');
+  }
+
+  // search
+  document.getElementById('search-input').addEventListener('input', (ev) => {
+    const q = ev.target.value.trim().toLowerCase();
+    nodeEls.forEach(({n, circle, text}) => {
+      const hit = q && n.label.toLowerCase().includes(q);
+      circle.setAttribute('opacity', !q || hit ? '1' : '0.15');
+      text.setAttribute('opacity', !q || hit ? '1' : '0.15');
+    });
+  });
+
+  // toolbar wiring
+  document.getElementById('btn-sample').addEventListener('click', () => loadGraph(COMPANY_ANATOMY_SAMPLE));
+  document.getElementById('btn-upload').addEventListener('click', () => document.getElementById('file-input').click());
+  document.getElementById('file-input').addEventListener('change', (ev) => {
+    const file = ev.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try { loadGraph(JSON.parse(reader.result)); jsonError.textContent=''; }
+      catch(err){ jsonError.textContent = err.message; }
+    };
+    reader.readAsText(file);
+  });
+  document.getElementById('btn-edit').addEventListener('click', () => jsonPanel.classList.toggle('open'));
+  document.getElementById('btn-apply-json').addEventListener('click', () => {
+    try {
+      const raw = JSON.parse(jsonInput.value);
+      loadGraph(raw);
+      jsonError.textContent = '';
+    } catch(err){ jsonError.textContent = err.message; }
+  });
+
+  // --- editing: add node ---
+  document.getElementById('btn-add-node').addEventListener('click', () => nodePanel.classList.toggle('open'));
+  document.getElementById('btn-create-node').addEventListener('click', () => {
+    const label = document.getElementById('new-node-label').value.trim();
+    if (!label) return;
+    const group = document.getElementById('new-node-group').value.trim() || 'default';
+    let id = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'node';
+    while (nodes.some(n => n.id === id)) id = id.replace(/_\d+$/, '') + '_' + (++nodeCounter);
+    nodes.push({ id, label, group, x: width/2 + (Math.random()-0.5)*120, y: height/2 + (Math.random()-0.5)*120, vx: 0, vy: 0 });
+    document.getElementById('new-node-label').value = '';
+    document.getElementById('new-node-group').value = '';
+    emptyHint.style.display = 'none';
+    refreshScene();
+  });
+
+  // --- editing: add edge ---
+  function populateEdgeSelects(){
+    const opts = nodes.map(n => '<option value="' + n.id + '">' + n.label + '</option>').join('');
+    document.getElementById('edge-from').innerHTML = opts;
+    document.getElementById('edge-to').innerHTML = opts;
+  }
+  document.getElementById('btn-add-edge').addEventListener('click', () => {
+    populateEdgeSelects();
+    edgePanel.classList.toggle('open');
+  });
+  document.getElementById('btn-create-edge').addEventListener('click', () => {
+    const source = document.getElementById('edge-from').value;
+    const target = document.getElementById('edge-to').value;
+    if (!source || !target || source === target) return;
+    const label = document.getElementById('new-edge-label').value.trim();
+    const byId = Object.fromEntries(nodes.map(n => [n.id, n]));
+    edges.push({ source, target, label, group: 'default', s: byId[source], t: byId[target], _eid: nextEdgeId++ });
+    document.getElementById('new-edge-label').value = '';
+    refreshScene();
+  });
+
+  // --- editing: rename / regroup / delete selected node ---
+  document.getElementById('btn-save-node').addEventListener('click', () => {
+    const n = nodes.find(x => x.id === selectedId);
+    if (!n) return;
+    n.label = document.getElementById('d-edit-label').value.trim() || n.label;
+    n.group = document.getElementById('d-edit-group').value.trim() || n.group;
+    refreshScene();
+    selectNode(selectedId);
+  });
+  document.getElementById('btn-pin-node').addEventListener('click', () => {
+    const n = nodes.find(x => x.id === selectedId);
+    if (!n) return;
+    if (n.pinned) {
+      n.pinned = false;
+      delete n.fx; delete n.fy;
+    } else {
+      n.pinned = true;
+      n.x = n.fx = width / 2;
+      n.y = n.fy = height / 2;
+    }
+    selectNode(selectedId);
+    startSim();
+  });
+  document.getElementById('btn-delete-node').addEventListener('click', () => {
+    if (!selectedId) return;
+    nodes = nodes.filter(n => n.id !== selectedId);
+    edges = edges.filter(e => e.source !== selectedId && e.target !== selectedId);
+    selectedId = null;
+    refreshScene();
+    selectNode(null);
+  });
+
+  // --- export current graph (including any edits) back to JSON ---
+  document.getElementById('btn-export').addEventListener('click', () => {
+    const out = {
+      nodes: nodes.map(n => ({ id: n.id, label: n.label, group: n.group })),
+      edges: edges.map(e => ({ source: e.source, target: e.target, label: e.label || '', group: e.group || 'default' }))
+    };
+    const text = JSON.stringify(out, null, 2);
+    jsonInput.value = text;
+    jsonPanel.classList.add('open');
+    jsonInput.focus(); jsonInput.select();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(() => { statusEl.textContent = 'Exported — copied to clipboard and shown below.'; })
+        .catch(() => { statusEl.textContent = 'Exported — shown below, select all to copy.'; });
+    } else {
+      statusEl.textContent = 'Exported — shown below, select all to copy.';
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    if (!nodes.length) return;
+    width = svg.clientWidth; height = svg.clientHeight;
+  });
+})();
+</script>
