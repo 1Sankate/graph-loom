@@ -6,7 +6,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "api"))
 
-from leader_rules import check_department_leaders
+from detect_phantoms import check_department_leaders
 
 
 def load_roster(path):

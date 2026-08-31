@@ -1,7 +1,7 @@
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "api"))
 
-from leader_rules import analyze_graph
+from detect_phantoms import analyze_graph, handle_request
 
 EXEC_NODES = [
     {"id": "ceo", "label": "CEO", "group": "executive", "external": False},
@@ -70,7 +70,6 @@ def test_summary_counts_and_coverage():
     assert out["summary"]["coverage_pct"] == round(100 * (3 - len(out["gaps"])) / 3)
 
 
-from detect_phantoms import handle_request
 
 
 def test_handle_request_returns_analysis():

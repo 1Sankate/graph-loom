@@ -16,7 +16,7 @@ const SCHEMA = { actors: [
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   // point the page's relative /api call at the real local Python server
   await page.route('**/api/detect_phantoms', async route => {
-    const res = await fetch('http://127.0.0.1:8899/api/detect_phantoms',
+    const res = await fetch('http://127.0.0.1:8903/api/detect_phantoms',
       { method: 'POST', headers: {'Content-Type':'application/json'}, body: route.request().postData() });
     route.fulfill({ status: res.status, contentType: 'application/json', body: await res.text() });
   });
