@@ -61,8 +61,15 @@
   #graph-svg{width:100%;height:100%;cursor:grab;}
   #graph-svg:active{cursor:grabbing;}
   .empty-hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;color:var(--ink-soft);font-size:13.5px;text-align:center;padding:20px;pointer-events:none;}
+  .canvas-refresh{position:absolute;top:12px;right:12px;z-index:6;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:none;border-radius:50%;background:var(--accent);color:#fff;font-size:24px;line-height:1;cursor:pointer;box-shadow:0 2px 6px rgba(60,64,67,.3),0 1px 3px rgba(60,64,67,.25);transition:background .15s ease,transform .25s ease;}
+  .canvas-refresh:hover{background:var(--accent-ink);}
+  .canvas-refresh:active{transform:rotate(180deg);}
   .node-hover-box{position:absolute;display:none;max-width:240px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;box-shadow:var(--shadow);font-family:"Roboto",sans-serif;font-size:12.5px;color:var(--ink);pointer-events:none;z-index:5;}
-  .node-hover-box b{display:block;margin-bottom:4px;}
+  .node-hover-box > b{display:block;font-size:13.5px;margin-bottom:5px;}
+  .node-hover-box .hb-group{display:inline-block;font-size:10.5px;font-weight:500;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);background:var(--accent-soft);padding:2px 8px;border-radius:20px;margin-bottom:6px;}
+  .node-hover-box .hb-about{color:var(--ink-soft);font-size:12px;line-height:1.45;margin-bottom:4px;}
+  .node-hover-box .hb-about span{color:var(--ink);font-weight:500;}
+  .node-hover-box .hb-head{font-size:10.5px;font-weight:500;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);margin:8px 0 2px;border-top:1px solid var(--border);padding-top:6px;}
   .node-hover-box ul{margin:4px 0 0;padding-left:16px;color:var(--ink-soft);}
   .node-hover-box li{margin-bottom:2px;}
 
@@ -116,6 +123,7 @@
     <textarea id="json-input" placeholder='Paste JSON here — either {"nodes":[{"id":"a","label":"A","group":"x"}],"edges":[{"source":"a","target":"b","label":"rel"}]}  or  {"actors":[...],"relationships":[...]} (the Company Anatomy schema shape)'></textarea>
     <div class="row">
       <button class="btn primary" id="btn-apply-json">Render this graph</button>
+      <button class="btn" id="btn-detect-phantom" title="Send the current graph to the phantom detector and mark whatever it flags">Detect phantom nodes</button>
       <span id="json-error"></span>
     </div>
   </div>
@@ -140,6 +148,7 @@
 
   <div class="layout">
     <div class="canvas-wrap">
+      <button class="canvas-refresh" id="btn-reshuffle" title="New layout - re-runs the graph without reloading the page" aria-label="Refresh layout">&#x21bb;</button>
       <svg id="graph-svg"></svg>
       <div class="empty-hint" id="empty-hint">Load the sample, upload a JSON file, or paste your own graph to begin.</div>
       <div class="node-hover-box" id="node-hover-box"></div>
@@ -194,22 +203,69 @@
 
   const COMPANY_ANATOMY_SAMPLE = {"$schema": "company-anatomy/v1", "description": "Actors, sub-actors and relationships for a generic product-based company. Mirrors the Company Anatomy diagram.", "actors": [{"id": "leadership", "name": "Leadership", "category": "governance", "external": false, "roles": ["CEO", "Chief Product Officer", "CTO", "CFO / COO"]}, {"id": "build_product", "name": "Product", "category": "build", "external": false, "roles": ["Product Manager", "Product Designer", "UX Researcher", "Product Analyst"]}, {"id": "build_engineering", "name": "Engineering", "category": "build", "external": false, "roles": ["Backend Engineer", "Frontend Engineer", "Mobile Engineer", "QA / Test Engineer", "DevOps / SRE", "Security Engineer"]}, {"id": "build_data", "name": "Data & Analytics", "category": "build", "external": false, "roles": ["Data Engineer", "Data Scientist / ML", "BI Analyst"]}, {"id": "gtm_marketing", "name": "Marketing", "category": "gtm", "external": false, "roles": ["Content Marketer", "Growth Marketer", "Brand & PR", "SEO / ASO"]}, {"id": "gtm_sales", "name": "Sales", "category": "gtm", "external": false, "roles": ["SDR / BDR", "Account Executive", "Sales Engineer"]}, {"id": "retention_cs", "name": "Customer Success", "category": "retention", "external": false, "roles": ["Onboarding Specialist", "Account Manager", "Renewals Manager"]}, {"id": "retention_support", "name": "Support", "category": "retention", "external": false, "roles": ["Support Agent", "Technical Support Engineer", "Community Manager"]}, {"id": "enabling", "name": "Enabling Functions", "category": "enabling", "external": false, "roles": ["Finance & Accounting", "HR / People Ops", "Legal & Compliance", "IT / Workplace Ops"]}, {"id": "investors_board", "name": "Investors & Board", "category": "capital", "external": true, "roles": ["Board of Directors", "Investors / VCs"]}, {"id": "market_customers", "name": "Market & Customers", "category": "market", "external": true, "roles": ["Prospects & Leads", "End Users", "Paying Customers", "Direct Competitors"]}, {"id": "ecosystem_partners", "name": "Ecosystem & Partners", "category": "ecosystem", "external": true, "roles": ["Cloud & Infra Vendors", "Integration Partners", "Channel / Reseller Partners"]}, {"id": "regulatory", "name": "Regulatory Context", "category": "external", "external": true, "roles": ["Regulators", "Industry Compliance Bodies"]}], "relationships": [{"source": "investors_board", "target": "leadership", "label": "capital & board oversight", "type": "gov"}, {"source": "leadership", "target": "investors_board", "label": "performance reporting", "type": "gov"}, {"source": "leadership", "target": "enabling", "label": "steers & resources every band", "type": "gov"}, {"source": "build_engineering", "target": "gtm_sales", "label": "ships the product", "type": "flow"}, {"source": "gtm_sales", "target": "retention_cs", "label": "hands off closed accounts", "type": "flow"}, {"source": "retention_support", "target": "build_product", "label": "feature requests & bug reports", "type": "flow"}, {"source": "market_customers", "target": "build_product", "label": "usage data & feedback", "type": "flow"}, {"source": "market_customers", "target": "gtm_marketing", "label": "demand & signups", "type": "flow"}, {"source": "gtm_sales", "target": "market_customers", "label": "deals closed & delivered", "type": "flow"}, {"source": "market_customers", "target": "retention_support", "label": "support requests \u21c4 resolutions", "type": "flow"}, {"source": "market_customers", "target": "gtm_marketing", "label": "competitive pressure", "type": "ext", "note": "from the Direct Competitors role specifically", "dashed": true}, {"source": "ecosystem_partners", "target": "build_engineering", "label": "infrastructure, APIs & tools", "type": "eco"}, {"source": "ecosystem_partners", "target": "gtm_sales", "label": "referred deals & co-selling", "type": "eco"}, {"source": "regulatory", "target": "enabling", "label": "compliance requirements", "type": "ext", "dashed": true}], "relationship_types": {"gov": "Governance & capital", "flow": "Product & market flow", "eco": "Ecosystem & resources", "ext": "External pressure"}};
 
+  // ---------------------------------------------------------------------
+  // What each function actually does. The hover box uses this when a node
+  // carries no "about" of its own - so a node you add later (Sales, HR, ...)
+  // explains itself with no extra data entry. Add a row to extend it.
+  // Order matters: more specific keys first, first match wins.
+  // ---------------------------------------------------------------------
+  const ROLE_ABOUT = [
+    ['phantom',    'Informal influence. Acts outside the documented reporting line and holds no formal title for what it decides.'],
+    ['ceo',        'Sets company direction and holds final decision authority across every function.'],
+    ['cfo',        'Owns budget, financial reporting and spend approval.'],
+    ['cmo',        'Owns brand, campaigns and demand generation.'],
+    ['cro',        'Owns revenue targets, pipeline and commercial strategy.'],
+    ['chro',       'Owns hiring, people operations and retention.'],
+    ['clo',        'Owns contracts, compliance and legal risk.'],
+    ['cto',        'Owns technology direction, architecture and engineering delivery.'],
+    ['coo',        'Owns day-to-day operations and execution across functions.'],
+    ['leadership|governance', 'Sets direction, allocates resources and holds final sign-off across every function.'],
+    ['marketing',  'Brand, campaigns and demand generation. Turns market attention into qualified interest.'],
+    ['sales',      'Revenue and pipeline. Converts qualified interest into closed customers.'],
+    ['finance',    'Budget, reporting and financial control. Approves and tracks spend.'],
+    ['hr|people|talent|recruit', 'Hiring, people operations and retention. Owns headcount and employee lifecycle.'],
+    ['legal|compliance', 'Contracts, compliance and risk. Reviews and signs off on legal exposure.'],
+    ['product',    'Defines what gets built and why, based on customer and market need.'],
+    ['engineer|engineering|tech', 'Builds and maintains the product and the systems it runs on.'],
+    ['data|analytics', 'Measurement, reporting and insight. Turns raw activity into decisions.'],
+    ['support',    'Handles customer issues after purchase and feeds problems back to the product.'],
+    ['customer success|retention', 'Keeps existing customers active and renewing after the sale.'],
+    ['operations|ops', 'Keeps internal processes, tooling and delivery running day to day.'],
+    ['enabling',   'Shared internal services - finance, people, legal, IT - that every other function depends on.'],
+    ['board|investor|capital', 'Provides capital and oversight. Holds leadership accountable to results.'],
+    ['partner|ecosystem|vendor', 'External organisations supplying tools, infrastructure or referred business.'],
+    ['regulat', 'External bodies setting the rules the company must operate within.'],
+    ['market|customer', 'The external demand side: prospects, users, paying customers and competitors.'],
+  ].map(([k, text]) => [new RegExp('\\b(' + k + ')', 'i'), text]);
+
+  // explicit data always wins; otherwise fall back to the table above
+  function aboutFor(n){
+    if (n.about) return n.about;
+    const hay = (n.label || '') + ' ' + (n.group || '');
+    for (const [re, text] of ROLE_ABOUT) if (re.test(hay)) return text;
+    return '';
+  }
+
   function ns(tag){ return document.createElementNS('http://www.w3.org/2000/svg', tag); }
 
   function normalize(raw){
     if (raw && Array.isArray(raw.nodes) && Array.isArray(raw.edges)){
       return {
-        nodes: raw.nodes.map(n => ({ id: String(n.id), label: n.label || String(n.id), group: n.group || 'default' })),
+        nodes: raw.nodes.map(n => ({ id: String(n.id), label: n.label || String(n.id), group: n.group || 'default', about: n.about || n.note || n.description || '', roles: n.roles || null })),
         edges: raw.edges.map(e => ({ source: String(e.source), target: String(e.target), label: e.label || '', group: e.group || e.type || 'default', dashed: !!e.dashed }))
       };
     }
     if (raw && Array.isArray(raw.actors)){
       const n = [], e = [];
       raw.actors.forEach(a => {
-        n.push({ id: a.id, label: a.name, group: a.category || 'actor' });
+        // no invented fallback text here - if the source data says nothing,
+        // aboutFor() supplies the description from ROLE_ABOUT instead
+        n.push({ id: a.id, label: a.name, group: a.category || 'actor',
+                 about: a.about || a.note || a.description || '',
+                 roles: a.roles || null });
         (a.roles || []).forEach((r, i) => {
           const rid = a.id + '::role::' + i;
-          n.push({ id: rid, label: r, group: 'role' });
+          n.push({ id: rid, label: r, group: 'role', about: '', roles: null });
           e.push({ source: a.id, target: rid, label: 'has role', group: 'role' });
         });
       });
@@ -282,15 +338,18 @@
   }
 
   let edgeEls = [], nodeEls = [];
+  const nodeRadius = (n) => n.group === 'role' ? 5 : 9;
   function buildScene(){
     svg.innerHTML = '';
     const defs = ns('defs');
-    defs.innerHTML = '<marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"></path></marker>';
+    // markerUnits=userSpaceOnUse keeps the head a fixed, readable size instead
+    // of scaling it down with the thin stroke width
+    defs.innerHTML = '<marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"></path></marker>';
     svg.appendChild(defs);
     const gRoot = ns('g'); gRoot.setAttribute('id', 'scene');
     svg.appendChild(gRoot);
-    const edgeLayer = ns('g'); const labelLayer = ns('g'); const nodeLayer = ns('g');
-    gRoot.appendChild(edgeLayer); gRoot.appendChild(labelLayer); gRoot.appendChild(nodeLayer);
+    const edgeLayer = ns('g'); const nodeLayer = ns('g');
+    gRoot.appendChild(edgeLayer); gRoot.appendChild(nodeLayer);
 
     edgeEls = edges.map(e => {
       const line = ns('line');
@@ -301,41 +360,9 @@
       if (e.dashed) line.setAttribute('stroke-dasharray', '4,3');
       edgeLayer.appendChild(line);
 
-      // invisible wide hit-line so hovering near the thin edge still
-      // triggers the label - the thin visible line is a hard target
-      const hitLine = ns('line');
-      hitLine.setAttribute('stroke', '#000');
-      hitLine.setAttribute('opacity', '0');
-      hitLine.setAttribute('stroke-width', '14');
-      hitLine.setAttribute('pointer-events', 'stroke');
-      hitLine.style.cursor = 'pointer';
-      edgeLayer.appendChild(hitLine);
-
-      let label = null;
-      // skip the auto-generated "has role" edges - they're structural, not
-      // the relationships the user actually wants to read on the graph
-      if (e.label && e.group !== 'role') {
-        label = ns('text');
-        label.textContent = e.label;
-        label.setAttribute('font-size', '9.5');
-        label.setAttribute('font-family', 'IBM Plex Sans Condensed, sans-serif');
-        label.setAttribute('fill', 'var(--ink-soft)');
-        label.setAttribute('text-anchor', 'middle');
-        label.setAttribute('paint-order', 'stroke');
-        label.setAttribute('stroke', 'var(--surface)');
-        label.setAttribute('stroke-width', '3');
-        // hidden until hover/tap on the edge - no permanent text on the graph
-        label.style.opacity = '0';
-        label.style.transition = 'opacity .12s';
-        label.style.pointerEvents = 'none';
-        labelLayer.appendChild(label);
-        const showLabel = () => { label.style.opacity = '1'; };
-        const hideLabel = () => { label.style.opacity = '0'; };
-        hitLine.addEventListener('mouseenter', showLabel);
-        hitLine.addEventListener('mouseleave', hideLabel);
-        hitLine.addEventListener('click', (ev) => { ev.stopPropagation(); showLabel(); });
-      }
-      return { e, line, hitLine, label };
+      // no text is ever drawn on an edge - every relationship detail is read
+      // from the node hover box instead
+      return { e, line };
     });
 
     nodeEls = nodes.map(n => {
@@ -389,11 +416,9 @@
 
   function applyVisibility(){
     nodeEls.forEach(({n, g}) => { g.style.display = hiddenGroups.has(n.group) ? 'none' : ''; });
-    edgeEls.forEach(({e, line, hitLine, label}) => {
+    edgeEls.forEach(({e, line}) => {
       const hide = hiddenGroups.has(e.s.group) || hiddenGroups.has(e.t.group);
       line.style.display = hide ? 'none' : '';
-      hitLine.style.display = hide ? 'none' : '';
-      if (label) label.style.display = hide ? 'none' : '';
     });
   }
 
@@ -403,12 +428,23 @@
     const box = document.getElementById('node-hover-box');
     const wrap = box.parentElement.getBoundingClientRect();
     const links = edges.filter(e => e.source === n.id || e.target === n.id);
+    // no direction arrows in the box - the graph's own arrows already show
+    // direction; here it's only who it relates to and how
     const list = links.map(l => {
       const other = l.source === n.id ? l.t : l.s;
-      const dir = l.source === n.id ? '→' : '←';
-      return '<li>' + dir + ' <b>' + (other ? other.label : '?') + '</b>' + (l.label ? ' — ' + l.label : '') + '</li>';
+      return '<li><b>' + (other ? other.label : '?') + '</b>' + (l.label ? ' — ' + l.label : '') + '</li>';
     }).join('') || '<li>No connections.</li>';
-    box.innerHTML = '<b>' + n.label + '</b><ul>' + list + '</ul>';
+
+    const roleNames = (n.roles && n.roles.length) ? n.roles
+      : links.filter(l => l.group === 'role' && l.source === n.id).map(l => l.t && l.t.label).filter(Boolean);
+
+    let html = '<b>' + n.label + '</b>';
+    html += '<div class="hb-group">' + n.group + '</div>';
+    const about = aboutFor(n);
+    if (about) html += '<div class="hb-about">' + about + '</div>';
+    if (roleNames.length) html += '<div class="hb-about"><span>Roles:</span> ' + roleNames.join(', ') + '</div>';
+    html += '<div class="hb-head">Relationships (' + links.length + ')</div><ul>' + list + '</ul>';
+    box.innerHTML = html;
     box.style.display = 'block';
     let left = ev.clientX - wrap.left + 14, top = ev.clientY - wrap.top + 14;
     left = Math.min(left, wrap.width - box.offsetWidth - 8);
@@ -494,18 +530,15 @@
         else { n.x += n.vx; n.y += n.vy; }
       });
       nodeEls.forEach(({n, g}) => { g.setAttribute('transform', 'translate(' + n.x.toFixed(1) + ',' + n.y.toFixed(1) + ')'); });
-      edgeEls.forEach(({e, line, hitLine, label}) => {
-        line.setAttribute('x1', e.s.x); line.setAttribute('y1', e.s.y);
-        line.setAttribute('x2', e.t.x); line.setAttribute('y2', e.t.y);
-        hitLine.setAttribute('x1', e.s.x); hitLine.setAttribute('y1', e.s.y);
-        hitLine.setAttribute('x2', e.t.x); hitLine.setAttribute('y2', e.t.y);
-        if (label) {
-          const mx = (e.s.x + e.t.x) / 2, my = (e.s.y + e.t.y) / 2;
-          let angle = Math.atan2(e.t.y - e.s.y, e.t.x - e.s.x) * 180 / Math.PI;
-          if (angle > 90 || angle < -90) angle += 180; // keep text upright, never upside down
-          label.setAttribute('x', mx); label.setAttribute('y', my - 3);
-          label.setAttribute('transform', 'rotate(' + angle.toFixed(1) + ',' + mx.toFixed(1) + ',' + my.toFixed(1) + ')');
-        }
+      edgeEls.forEach(({e, line}) => {
+        // stop the line short of both circles so the arrowhead lands OUTSIDE
+        // the target node instead of being buried under it
+        const dx = e.t.x - e.s.x, dy = e.t.y - e.s.y;
+        const dist = Math.sqrt(dx*dx + dy*dy) || 0.01;
+        const ux = dx/dist, uy = dy/dist;
+        const rs = nodeRadius(e.s), rt = nodeRadius(e.t); // head lands right on the circle edge
+        line.setAttribute('x1', e.s.x + ux*rs); line.setAttribute('y1', e.s.y + uy*rs);
+        line.setAttribute('x2', e.t.x - ux*rt); line.setAttribute('y2', e.t.y - uy*rt);
       });
       ticks++;
       if (ticks < 400) simRaf = requestAnimationFrame(tick);
@@ -552,6 +585,66 @@
   });
 
   // toolbar wiring
+  // ---------------------------------------------------------------------
+  // Phantom detection. Point this at your backend (the phantom_rag.py service)
+  // and the button below does the rest. Contract:
+  //   POST  ->  {"nodes":[{id,label,group}], "edges":[{source,target,label}]}
+  //   200   <-  {"phantom_ids": ["id1","id2", ...]}
+  // Everything it returns gets regrouped to "phantom" and redrawn.
+  // ---------------------------------------------------------------------
+  const PHANTOM_ENDPOINT = '/api/detect-phantoms';
+
+  document.getElementById('btn-detect-phantom').addEventListener('click', async () => {
+    const errEl = document.getElementById('json-error');
+    if (!nodes.length) { errEl.textContent = 'Load a graph first.'; return; }
+    errEl.textContent = 'Detecting…';
+    try {
+      const res = await fetch(PHANTOM_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nodes: nodes.map(n => ({ id: n.id, label: n.label, group: n.group })),
+          edges: edges.map(e => ({ source: e.source, target: e.target, label: e.label || '' }))
+        })
+      });
+      if (!res.ok) throw new Error('detector returned ' + res.status);
+      const { phantom_ids = [] } = await res.json();
+      const flagged = new Set(phantom_ids);
+      nodes.forEach(n => { if (flagged.has(n.id)) n.group = 'phantom'; });
+      edges.forEach(e => { if (flagged.has(e.source) || flagged.has(e.target)) e.dashed = true; });
+      refreshScene();
+      errEl.textContent = flagged.size
+        ? flagged.size + ' phantom node(s) flagged.'
+        : 'No phantom nodes found.';
+    } catch (err) {
+      errEl.textContent = 'Phantom detector not reachable (' + err.message +
+        '). Set PHANTOM_ENDPOINT in the page source to your backend URL.';
+    }
+  });
+
+  // new layout for the SAME graph - scatters every unpinned node to a fresh
+  // random spot and re-runs the force sim. No page reload, no re-render needed.
+  document.getElementById('btn-reshuffle').addEventListener('click', () => {
+    // if the JSON box holds a schema that isn't on screen yet, render THAT
+    // first - so refresh doubles as "apply my edits" without touching Render
+    const applied = applyJsonFromTextarea();
+    if (applied === 'rendered' || applied === 'error') return;
+
+    if (!nodes.length) return;
+    width = svg.clientWidth || 900; height = svg.clientHeight || 640;
+    const r = Math.min(width, height) * 0.35;
+    nodes.forEach(n => {
+      if (n.pinned) return;               // pinned nodes keep their spot
+      const a = Math.random() * Math.PI * 2;
+      n.x = width/2 + Math.cos(a) * r * (0.4 + Math.random()*0.6);
+      n.y = height/2 + Math.sin(a) * r * (0.4 + Math.random()*0.6);
+      n.vx = 0; n.vy = 0;
+      delete n.fx; delete n.fy;
+    });
+    hideNodeBox();
+    startSim();
+  });
+
   document.getElementById('btn-sample').addEventListener('click', () => loadGraph(COMPANY_ANATOMY_SAMPLE));
   document.getElementById('btn-upload').addEventListener('click', () => document.getElementById('file-input').click());
   document.getElementById('file-input').addEventListener('change', (ev) => {
@@ -564,12 +657,43 @@
     reader.readAsText(file);
   });
   document.getElementById('btn-edit').addEventListener('click', () => jsonPanel.classList.toggle('open'));
-  document.getElementById('btn-apply-json').addEventListener('click', () => {
+  // text of the JSON that produced whatever is on screen right now, so the
+  // refresh button can tell "schema was edited" from "same schema, new layout"
+  let renderedJson = '';
+
+  // a bare "position 577" is useless while hand-editing a schema - show the
+  // line, the text right there, and the usual cause
+  function explainJsonError(err, text){
+    const m = /position (\d+)/.exec(err.message);
+    if (!m) return err.message;
+    const pos = +m[1];
+    const line = text.slice(0, pos).split('\n').length;
+    const snippet = text.slice(Math.max(0, pos - 30), pos + 30).replace(/\s+/g, ' ').trim();
+    let hint = '';
+    if (/after JSON/.test(err.message)) hint = ' — the schema already ended here; usually an extra } or ] above, or two schemas pasted together.';
+    else if (/property name/.test(err.message)) hint = ' — usually a missing comma, or a trailing comma before } or ].';
+    else if (/Unexpected token/.test(err.message)) hint = ' — check quotes and commas just before this point.';
+    return 'Line ' + line + ': ' + err.message + hint + '  →  ...' + snippet + '...';
+  }
+
+  // returns 'rendered' | 'unchanged' | 'empty' | 'error'
+  function applyJsonFromTextarea(){
+    const text = jsonInput.value.trim();
+    if (!text) return 'empty';
+    if (text === renderedJson) return 'unchanged';
     try {
-      const raw = JSON.parse(jsonInput.value);
+      const raw = JSON.parse(text);
       loadGraph(raw);
+      renderedJson = text;
       jsonError.textContent = '';
-    } catch(err){ jsonError.textContent = err.message; }
+      return 'rendered';
+    } catch(err){ jsonError.textContent = explainJsonError(err, text); return 'error'; }
+  }
+
+  document.getElementById('btn-apply-json').addEventListener('click', () => {
+    // the Render button always re-renders, even if the text hasn't changed
+    renderedJson = '';
+    applyJsonFromTextarea();
   });
 
   // --- editing: add node ---
