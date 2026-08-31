@@ -2,18 +2,27 @@
 import json
 from http.server import BaseHTTPRequestHandler
 
-from leader_rules import analyze_graph
+try:
+    from leader_rules import analyze_graph
+    IMPORT_ERROR = None
+except Exception as exc:  # bundling problem shows as a readable message, not a bare 500
+    analyze_graph, IMPORT_ERROR = None, repr(exc)
 
 
 def handle_request(payload):
     """Pure: dict in, (status, dict) out. Tested directly, no server needed."""
+    if IMPORT_ERROR:
+        return 500, {"error": "leader_rules failed to import on the server: " + IMPORT_ERROR}
     if not isinstance(payload, dict) or not isinstance(payload.get("nodes"), list):
         return 400, {"error": "expected JSON body with a 'nodes' list"}
-    return 200, analyze_graph(
-        payload["nodes"],
-        payload.get("edges") or [],
-        payload.get("rules"),
-    )
+    try:
+        return 200, analyze_graph(
+            payload["nodes"],
+            payload.get("edges") or [],
+            payload.get("rules"),
+        )
+    except Exception as exc:
+        return 500, {"error": type(exc).__name__ + ": " + str(exc)}
 
 
 class handler(BaseHTTPRequestHandler):
@@ -26,6 +35,12 @@ class handler(BaseHTTPRequestHandler):
         else:
             status, body = handle_request(payload)
         self._send(status, body)
+
+    def do_GET(self):
+        # health check - lets you verify the function from a browser address bar
+        self._send(200, {"ok": IMPORT_ERROR is None, "service": "leadership gap detector",
+                         "import_error": IMPORT_ERROR,
+                         "usage": "POST {nodes:[...], edges:[...], rules:{...}}"})
 
     def do_OPTIONS(self):
         self._send(204, None)
