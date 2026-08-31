@@ -195,6 +195,7 @@
 
   let nodes = [], edges = [], groupOrder = [], hiddenGroups = new Set();
   let selectedId = null;
+  let currentRules = null;   // leadership_rules from the pasted schema, if any
   let width = svg.clientWidth || 900, height = svg.clientHeight || 640;
   let viewX = 0, viewY = 0, viewScale = 1;
   let nextEdgeId = 0, nodeCounter = 0, dragNode = null;
@@ -279,6 +280,7 @@
 
   function loadGraph(raw){
     const g = normalize(raw);
+    currentRules = raw && raw.leadership_rules ? raw.leadership_rules : null;
     const idSet = new Set(g.nodes.map(n => n.id));
     g.edges = g.edges.filter(e => idSet.has(e.source) && idSet.has(e.target));
 
@@ -592,33 +594,80 @@
   //   200   <-  {"phantom_ids": ["id1","id2", ...]}
   // Everything it returns gets regrouped to "phantom" and redrawn.
   // ---------------------------------------------------------------------
-  const PHANTOM_ENDPOINT = '/api/detect-phantoms';
+  const PHANTOM_ENDPOINT = '/api/detect_phantoms';
+
+  // ghosts are drawn, never persisted - clearing is always safe
+  function clearGhosts(){
+    nodes = nodes.filter(n => !n.suggested);
+    edges = edges.filter(e => !e.suggested);
+  }
+
+  function drawGhosts(report){
+    clearGhosts();
+    const byId = Object.fromEntries(nodes.map(n => [n.id, n]));
+    // busiest node, used only when a department has nothing else attached
+    const degree = {};
+    edges.forEach(e => { degree[e.source] = (degree[e.source]||0)+1; degree[e.target] = (degree[e.target]||0)+1; });
+    const busiest = nodes.slice().sort((a,b) => (degree[b.id]||0) - (degree[a.id]||0))[0];
+
+    (report.gaps || []).forEach(deptId => {
+      const dept = byId[deptId];
+      const info = (report.departments || {})[deptId];
+      if (!dept || !info) return;
+
+      const ghost = { id: 'ghost::' + deptId, label: info.recommended_title + ' (suggested)',
+                      group: 'suggested', suggested: true,
+                      about: 'No leader found for ' + info.name + '. This seat is a suggestion, not a real person.',
+                      x: dept.x + 40, y: dept.y - 40, vx: 0, vy: 0 };
+      nodes.push(ghost);
+
+      const link = (source, target, label) => edges.push({
+        source, target, label, group: 'suggested', dashed: true, suggested: true,
+        s: source === ghost.id ? ghost : byId[source], t: target === ghost.id ? ghost : byId[target],
+        _eid: nextEdgeId++
+      });
+
+      link(ghost.id, deptId, 'would lead');
+
+      // mirror the department's real relationships onto the empty seat
+      const real = edges.filter(e => !e.suggested && e.group !== 'role' &&
+                                     (e.source === deptId || e.target === deptId));
+      real.forEach(e => {
+        const other = e.source === deptId ? e.target : e.source;
+        if (other === ghost.id || !byId[other] || byId[other].group === 'role') return;
+        link(other, ghost.id, 'would: ' + (e.label || 'relate'));
+      });
+
+      if (real.length === 0 && busiest && busiest.id !== deptId) link(ghost.id, busiest.id, 'would report to');
+    });
+
+    refreshScene();
+  }
 
   document.getElementById('btn-detect-phantom').addEventListener('click', async () => {
     const errEl = document.getElementById('json-error');
     if (!nodes.length) { errEl.textContent = 'Load a graph first.'; return; }
-    errEl.textContent = 'Detecting…';
+    errEl.textContent = 'Checking leadership coverage\u2026';
     try {
       const res = await fetch(PHANTOM_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          nodes: nodes.map(n => ({ id: n.id, label: n.label, group: n.group })),
-          edges: edges.map(e => ({ source: e.source, target: e.target, label: e.label || '' }))
+          nodes: nodes.filter(n => !n.suggested).map(n => ({ id: n.id, label: n.label, group: n.group, external: !!n.external })),
+          edges: edges.filter(e => !e.suggested).map(e => ({ source: e.source, target: e.target, label: e.label || '', group: e.group || '' })),
+          rules: currentRules
         })
       });
       if (!res.ok) throw new Error('detector returned ' + res.status);
-      const { phantom_ids = [] } = await res.json();
-      const flagged = new Set(phantom_ids);
-      nodes.forEach(n => { if (flagged.has(n.id)) n.group = 'phantom'; });
-      edges.forEach(e => { if (flagged.has(e.source) || flagged.has(e.target)) e.dashed = true; });
-      refreshScene();
-      errEl.textContent = flagged.size
-        ? flagged.size + ' phantom node(s) flagged.'
-        : 'No phantom nodes found.';
+      const report = await res.json();
+      drawGhosts(report);
+      const s = report.summary || {};
+      errEl.textContent = (report.gaps || []).length
+        ? s.gaps + ' of ' + s.departments + ' departments have no leader (' + s.coverage_pct + '% covered). Suggested seats drawn as dashed nodes.'
+        : 'Every department has a leader.';
     } catch (err) {
-      errEl.textContent = 'Phantom detector not reachable (' + err.message +
-        '). Set PHANTOM_ENDPOINT in the page source to your backend URL.';
+      errEl.textContent = 'Leadership detector not reachable (' + err.message +
+        '). It runs on Vercel at ' + PHANTOM_ENDPOINT + ' \u2014 works on the deployed site, not on a local file.';
     }
   });
 
