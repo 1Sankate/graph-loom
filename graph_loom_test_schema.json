@@ -1,0 +1,74 @@
+{
+  "$schema": "company-anatomy/v1",
+  "description": "Torture-test schema for Graph Loom - exercises every detection path and UI feature",
+
+  "leadership_rules": {
+    "titles": {
+      "radiology": "Chief of Radiology",
+      "housekeeping": "Facilities Head"
+    }
+  },
+
+  "actors": [
+    { "id": "ceo", "name": "CEO", "category": "executive", "external": false,
+      "about": "Sets direction, final sign-off across every function.",
+      "roles": ["Chief Executive Officer"] },
+
+    { "id": "cfo", "name": "CFO", "category": "finance", "external": false,
+      "about": "Owns budget and spend approval." },
+
+    { "id": "marketing", "name": "Marketing", "category": "marketing", "external": false,
+      "about": "Brand, campaigns and demand generation.",
+      "roles": ["Content Marketer", "Growth Marketer", "SEO Specialist"] },
+
+    { "id": "sales", "name": "Sales", "category": "sales", "external": false,
+      "roles": ["SDR", "Account Executive", "Sales Engineer"] },
+
+    { "id": "engineering", "name": "Engineering", "category": "build", "external": false,
+      "roles": ["Engineering Director", "Backend Engineer", "QA Engineer"] },
+
+    { "id": "support", "name": "Support", "category": "retention", "external": false,
+      "roles": ["SVP Support", "Support Agent"] },
+
+    { "id": "hr", "name": "Human Resources", "category": "people", "external": false,
+      "roles": ["Chief People Officer", "Recruiter"] },
+
+    { "id": "legal", "name": "Legal", "category": "legal", "external": false,
+      "roles": ["Paralegal Director", "Contracts Analyst"] },
+
+    { "id": "radiology", "name": "Radiology", "category": "clinical", "external": false,
+      "roles": ["Radiographer", "Imaging Technician"] },
+
+    { "id": "housekeeping", "name": "Housekeeping", "category": "facilities", "external": false },
+
+    { "id": "warehouse", "name": "Warehouse", "category": "operations", "external": false,
+      "about": "Isolated on purpose - no relationships at all." },
+
+    { "id": "phantom_marketing_leader", "name": "Marketing Leader", "category": "phantom", "external": false,
+      "about": "No formal title, yet campaign decisions route through this person." },
+
+    { "id": "customers", "name": "Market & Customers", "category": "market", "external": true,
+      "roles": ["Prospects", "Paying Customers"] },
+
+    { "id": "regulators", "name": "Regulatory Bodies", "category": "external", "external": true }
+  ],
+
+  "relationships": [
+    { "source": "ceo", "target": "cfo", "label": "oversees finance", "type": "gov" },
+    { "source": "ceo", "target": "marketing", "label": "oversees marketing", "type": "gov" },
+    { "source": "ceo", "target": "engineering", "label": "oversees delivery", "type": "gov" },
+    { "source": "cfo", "target": "marketing", "label": "approves marketing budget", "type": "flow" },
+    { "source": "cfo", "target": "sales", "label": "sets revenue targets", "type": "flow" },
+    { "source": "engineering", "target": "sales", "label": "ships the product", "type": "flow" },
+    { "source": "sales", "target": "support", "label": "hands off accounts", "type": "flow" },
+    { "source": "support", "target": "engineering", "label": "bug reports", "type": "flow" },
+    { "source": "hr", "target": "engineering", "label": "staffs the team", "type": "flow" },
+    { "source": "legal", "target": "sales", "label": "reviews contracts", "type": "flow" },
+    { "source": "radiology", "target": "hr", "label": "requests clinical staff", "type": "flow" },
+    { "source": "customers", "target": "marketing", "label": "demand & signups", "type": "flow" },
+    { "source": "customers", "target": "support", "label": "support requests", "type": "flow" },
+    { "source": "regulators", "target": "legal", "label": "compliance requirements", "type": "ext", "dashed": true },
+    { "source": "phantom_marketing_leader", "target": "ceo", "label": "informal direct line, bypasses process", "type": "phantom", "dashed": true },
+    { "source": "phantom_marketing_leader", "target": "marketing", "label": "actually calls the shots", "type": "phantom", "dashed": true }
+  ]
+}

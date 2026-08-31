@@ -99,6 +99,8 @@ def print_missing_leaders(ranks, departments=None):
 
 
 
+ROLE_GROUP = "role"
+
 GENERIC_LEADER = re.compile(
     r"\bdirector\b|\b\w*vp\b|\bvice\s*president\b|\bhead\s+of\b"
     r"|\bchief\b.*\bofficer\b|\bc[a-z]{1,3}o\b|\bpresident\b",
@@ -106,21 +108,25 @@ GENERIC_LEADER = re.compile(
 )
 
 
-def dept_alias_map():
-    """Departments the rulebook has explicit C-title knowledge for."""
-    return {
-        "marketing", "sales", "revenue", "finance", "financial",
-        "hr", "human resources", "human resource", "people", "legal", "business",
-    }
+# A department node may be named anything ("Human Resources", "Revenue");
+# map it onto the canonical department the rulebook knows C-titles for.
+DEPT_ALIASES = {
+    "marketing": "marketing",
+    "sales": "sales", "revenue": "sales",
+    "finance": "finance", "financial": "finance",
+    "hr": "hr", "human resources": "hr", "human resource": "hr", "people": "hr",
+    "legal": "legal",
+    "business": "business",
+}
+
+# node groups that describe a person or an informal actor, never a department
+NON_DEPARTMENT_GROUPS = {ROLE_GROUP, "phantom"}
 
 
 def _generic_leader(titles):
     """Is any of these titles leader-level at all, for a department the rulebook
     has no specific C-titles for (Radiology, Leadership, a standalone CFO box)."""
     return any(GENERIC_LEADER.search(t or "") for t in titles)
-
-
-ROLE_GROUP = "role"
 
 
 def _role_children(node_id, nodes_by_id, edges):
@@ -144,7 +150,7 @@ def _suggested_title(dept_id, name, rules):
         "marketing": "CMO", "sales": "CRO", "finance": "CFO",
         "hr": "CHRO", "legal": "CLO", "business": "CBO",
     }
-    key = name.strip().lower()
+    key = DEPT_ALIASES.get(name.strip().lower())
     if key in known:
         return known[key]
     return "Head of " + name
@@ -159,18 +165,19 @@ def analyze_graph(nodes, edges, rules=None):
 
     departments, gaps = {}, []
     for n in nodes:
-        if n.get("group") == ROLE_GROUP or n.get("external"):
+        if n.get("group") in NON_DEPARTMENT_GROUPS or n.get("external"):
             continue
         if only and n["id"] not in only:
             continue
 
         name = n.get("label") or n["id"]
         titles = [name] + _role_children(n["id"], nodes_by_id, edges)
-        if name.strip().lower() in dept_alias_map():
+        canonical = DEPT_ALIASES.get(name.strip().lower())
+        if canonical:
             # a department the rulebook knows: use the strict, department-aware
             # check so a Sales Director never counts as Marketing's leader
-            results, _ = check_department_leaders(titles, [name])
-            present = results[name]
+            results, _ = check_department_leaders(titles, [canonical])
+            present = results[canonical]
         else:
             # any other node (Leadership, Radiology, a CFO box): the rulebook has
             # no C-titles for it, so ask the generic question instead

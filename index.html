@@ -252,7 +252,7 @@
   function normalize(raw){
     if (raw && Array.isArray(raw.nodes) && Array.isArray(raw.edges)){
       return {
-        nodes: raw.nodes.map(n => ({ id: String(n.id), label: n.label || String(n.id), group: n.group || 'default', about: n.about || n.note || n.description || '', roles: n.roles || null })),
+        nodes: raw.nodes.map(n => ({ id: String(n.id), label: n.label || String(n.id), group: n.group || 'default', external: !!n.external, about: n.about || n.note || n.description || '', roles: n.roles || null })),
         edges: raw.edges.map(e => ({ source: String(e.source), target: String(e.target), label: e.label || '', group: e.group || e.type || 'default', dashed: !!e.dashed }))
       };
     }
@@ -262,11 +262,12 @@
         // no invented fallback text here - if the source data says nothing,
         // aboutFor() supplies the description from ROLE_ABOUT instead
         n.push({ id: a.id, label: a.name, group: a.category || 'actor',
+                 external: !!a.external,
                  about: a.about || a.note || a.description || '',
                  roles: a.roles || null });
         (a.roles || []).forEach((r, i) => {
           const rid = a.id + '::role::' + i;
-          n.push({ id: rid, label: r, group: 'role', about: '', roles: null });
+          n.push({ id: rid, label: r, group: 'role', external: false, about: '', roles: null });
           e.push({ source: a.id, target: rid, label: 'has role', group: 'role' });
         });
       });
@@ -608,7 +609,11 @@
     // busiest node, used only when a department has nothing else attached
     const degree = {};
     edges.forEach(e => { degree[e.source] = (degree[e.source]||0)+1; degree[e.target] = (degree[e.target]||0)+1; });
-    const busiest = nodes.slice().sort((a,b) => (degree[b.id]||0) - (degree[a.id]||0))[0];
+    const led = id => (report.departments || {})[id] && report.departments[id].leader_present;
+    const byDegree = nodes.slice().sort((a,b) => (degree[b.id]||0) - (degree[a.id]||0));
+    // prefer the busiest node that actually has a leader - a seat with no
+    // relationships should report to a real boss, not to another empty box
+    const busiest = byDegree.find(n => led(n.id)) || byDegree[0];
 
     (report.gaps || []).forEach(deptId => {
       const dept = byId[deptId];
