@@ -1,18 +1,18 @@
-Scenario 2 
+
 
 {
-  "description": "Scenario 2. Company 1 is the seller, Company 2 is the buyer. The arrow still runs from the purchaser to whoever they buy from, so it ends on Company 1.",
+  "description": "Scenario 2. Aletheia Works is the seller, Company 2 is the buyer. The arrow still runs from the purchaser to whoever they buy from, so it ends on Aletheia Works.",
   "nodes": [
-    { "id": "company_1", "label": "COMPANY 1  ·  SELLER", "group": "seller", "shape": "box",
-      "about": "The seller. Supplies the goods or services and books the revenue." },
+    { "id": "aletheia", "label": "ALETHEIA WORKS  ·  SELLER", "group": "seller", "shape": "box",
+      "about": "Us, in the seller's seat. We supply the service and book the revenue from this account." },
     { "id": "company_2", "label": "COMPANY 2  ·  BUYER", "group": "buyer", "shape": "box",
-      "about": "The buyer. Places the order, approves the spend and pays." }
+      "about": "The customer. Places the order, approves the spend and pays our invoices." }
   ],
   "edges": [
-    { "source": "company_2", "target": "company_1",
+    { "source": "company_2", "target": "aletheia",
       "label": "buys from — one customer account",
       "type": "trade", "link": "direct", "line": "solid", "weight": "medium",
-      "note": "Medium from the seller's side: one customer among several. Raise to high if this account is a large share of revenue, drop to low if it is a one-off order. Weight is not symmetric - the same deal can be high for the buyer and medium for the seller." }
+      "note": "Medium from our seat as seller: one customer among several. Raise to high if this account is a large share of our revenue, drop to low if it is a one-off order. Weight is not symmetric - the same contract can be high for the buyer and medium for the seller." }
   ],
   "weight_symbols": { "low": "empty circle", "medium": "ringed circle", "high": "filled circle" },
   "line_styles": { "solid": "direct / documented", "dotted": "indirect / functional dependency", "dashed": "phantom / informal" }
