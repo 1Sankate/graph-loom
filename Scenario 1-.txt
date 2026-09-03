@@ -1,0 +1,19 @@
+Scenario 1-
+
+{
+  "description": "Two companies, one relation. Company 1 is the buyer, Company 2 is the seller. The arrow runs from the purchaser to whoever they buy from, so it ends on the seller.",
+  "nodes": [
+    { "id": "company_1", "label": "COMPANY 1  ·  BUYER", "group": "buyer", "shape": "box",
+      "about": "The buyer. Places the order, approves the spend and pays for what it receives." },
+    { "id": "company_2", "label": "COMPANY 2  ·  SELLER", "group": "seller", "shape": "box",
+      "about": "The seller. Supplies the goods or services being purchased." }
+  ],
+  "edges": [
+    { "source": "company_1", "target": "company_2",
+      "label": "buys from — core supply contract",
+      "type": "trade", "link": "direct", "line": "solid", "weight": "high",
+      "note": "High because this is the purchase the whole relationship exists for. Drop to medium if the buyer has alternative suppliers, low if it is an occasional spot order." }
+  ],
+  "weight_symbols": { "low": "empty circle", "medium": "ringed circle", "high": "filled circle" },
+  "line_styles": { "solid": "direct / documented", "dotted": "indirect / functional dependency", "dashed": "phantom / informal" }
+}

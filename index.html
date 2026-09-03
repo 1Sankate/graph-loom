@@ -5,7 +5,7 @@
   /* Chrome / Material-3 inspired theme */
   :root{
     --bg:#F1F3F4; --surface:#FFFFFF; --surface-2:#E8EAED;
-    --ink:#202124; --ink-soft:#5F6368; --border:#DADCE0; --border-strong:#BDC1C6;
+    --ink:#202124; --ink-soft:#5F6368; --border:#DADCE0; --border-strong:#BDC1C6; --wire:#000000;
     --accent:#1A73E8; --accent-ink:#174EA6; --accent-soft:#E8F0FE;
     --shadow: 0 1px 2px rgba(60,64,67,0.30), 0 1px 3px 1px rgba(60,64,67,0.15);
     --group-0:#1A73E8; --group-1:#EA4335; --group-2:#34A853; --group-3:#FBBC04;
@@ -14,7 +14,7 @@
   @media (prefers-color-scheme: dark){
     :root:not([data-theme="light"]){
       --bg:#202124; --surface:#292A2D; --surface-2:#35363A;
-      --ink:#E8EAED; --ink-soft:#9AA0A6; --border:#3C4043; --border-strong:#5F6368;
+      --ink:#E8EAED; --ink-soft:#9AA0A6; --border:#3C4043; --border-strong:#5F6368; --wire:#FFFFFF; --wire:#FFFFFF;
       --accent:#8AB4F8; --accent-ink:#D2E3FC; --accent-soft:#2A3B54;
       --shadow: 0 1px 2px rgba(0,0,0,0.5), 0 2px 6px 2px rgba(0,0,0,0.4);
       --group-0:#8AB4F8; --group-1:#F28B82; --group-2:#81C995; --group-3:#FDD663;
@@ -194,6 +194,7 @@
   const edgePanel = document.getElementById('edge-panel');
 
   let nodes = [], edges = [], groupOrder = [], hiddenGroups = new Set();
+  let companies = [], companyEls = [];
   let selectedId = null;
   let currentRules = null;   // leadership_rules from the pasted schema, if any
   let width = svg.clientWidth || 900, height = svg.clientHeight || 640;
@@ -252,8 +253,9 @@
   function normalize(raw){
     if (raw && Array.isArray(raw.nodes) && Array.isArray(raw.edges)){
       return {
-        nodes: raw.nodes.map(n => ({ id: String(n.id), label: n.label || String(n.id), group: n.group || 'default', external: !!n.external, about: n.about || n.note || n.description || '', roles: n.roles || null })),
-        edges: raw.edges.map(e => ({ source: String(e.source), target: String(e.target), label: e.label || '', group: e.group || e.type || 'default', dashed: !!e.dashed }))
+        nodes: raw.nodes.map(n => ({ id: String(n.id), label: n.label || String(n.id), group: n.group || 'default', external: !!n.external, about: n.about || n.note || n.description || '', roles: n.roles || null, shape: n.shape || null })),
+        edges: raw.edges.map(e => ({ source: String(e.source), target: String(e.target), label: e.label || '', group: e.group || e.type || 'default', dashed: !!e.dashed || e.line === 'dashed', dotted: e.line === 'dotted', weight: e.weight || null })),
+        companies: raw.companies || []
       };
     }
     if (raw && Array.isArray(raw.actors)){
@@ -264,7 +266,7 @@
         n.push({ id: a.id, label: a.name, group: a.category || 'actor',
                  external: !!a.external,
                  about: a.about || a.note || a.description || '',
-                 roles: a.roles || null });
+                 roles: a.roles || null, shape: a.shape || null });
         (a.roles || []).forEach((r, i) => {
           const rid = a.id + '::role::' + i;
           n.push({ id: rid, label: r, group: 'role', external: false, about: '', roles: null });
@@ -272,9 +274,9 @@
         });
       });
       (raw.relationships || []).forEach(r => {
-        e.push({ source: r.source, target: r.target, label: r.label || '', group: r.type || 'default', dashed: !!r.dashed });
+        e.push({ source: r.source, target: r.target, label: r.label || '', group: r.type || 'default', dashed: !!r.dashed || r.line === 'dashed', dotted: r.line === 'dotted', weight: r.weight || null });
       });
-      return { nodes: n, edges: e };
+      return { nodes: n, edges: e, companies: raw.companies || [] };
     }
     throw new Error('Unrecognized JSON shape — expected {nodes,edges} or {actors,relationships}.');
   }
@@ -288,6 +290,19 @@
     groupOrder = [...new Set(g.nodes.map(n => n.group))];
     hiddenGroups = new Set();
 
+    // a company box wraps its listed members plus any role nodes those members
+    // spawned, so a role never dangles outside its own company's outline
+    companies = (g.companies || []).map(c => {
+      const direct = new Set(c.members || []);
+      const ids = g.nodes.map(n => n.id).filter(id =>
+        direct.has(id) || [...direct].some(m => id.startsWith(m + '::role::')));
+      return { id: c.id, name: c.name || c.id, side: c.side || '', ids };
+    }).filter(c => c.ids.length);
+    // the layout has to know companies exist, otherwise the boxes overlap
+    const coOf = {};
+    companies.forEach((c, i) => c.ids.forEach(id => { coOf[id] = i; }));
+    g.nodes.forEach(n => { n._co = coOf[n.id]; });
+
     width = svg.clientWidth || 900; height = svg.clientHeight || 640;
     nodes = g.nodes.map((n, i) => {
       const angle = (i / g.nodes.length) * Math.PI * 2;
@@ -296,6 +311,14 @@
     });
     const byId = Object.fromEntries(nodes.map(n => [n.id, n]));
     edges = g.edges.map((e, i) => ({ ...e, s: byId[e.source], t: byId[e.target], _eid: i }));
+    const pairs = {};
+    edges.forEach(e => {
+      const k = [e.source, e.target].sort().join('\u0000');
+      (pairs[k] = pairs[k] || []).push(e);
+    });
+    Object.values(pairs).forEach(list => {
+      list.forEach((e, i) => { e._fan = i - (list.length - 1) / 2; });
+    });
     nextEdgeId = edges.length;
 
     selectedId = null;
@@ -342,46 +365,114 @@
 
   let edgeEls = [], nodeEls = [];
   const nodeRadius = (n) => n.group === 'role' ? 5 : 9;
+  const BOX_HALF_H = 27;
+  const boxHalfW = (n) => Math.max(85, n.label.length * 5.2 + 26);
+  // where an edge should stop: the circle's edge, or the box's edge
+  function edgeStop(n, ux, uy){
+    if (n.shape !== 'box') return nodeRadius(n);
+    const hw = boxHalfW(n), hh = BOX_HALF_H;
+    return Math.min(hw / (Math.abs(ux) || 1e-6), hh / (Math.abs(uy) || 1e-6));
+  }
   function buildScene(){
     svg.innerHTML = '';
     const defs = ns('defs');
     // markerUnits=userSpaceOnUse keeps the head a fixed, readable size instead
     // of scaling it down with the thin stroke width
-    defs.innerHTML = '<marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"></path></marker>';
+    defs.innerHTML = '<marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--border-strong)"></path></marker>'
+      + '<marker id="arrowhead-heavy" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="11" markerHeight="11" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--wire)"></path></marker>';
     svg.appendChild(defs);
     const gRoot = ns('g'); gRoot.setAttribute('id', 'scene');
     svg.appendChild(gRoot);
-    const edgeLayer = ns('g'); const nodeLayer = ns('g');
-    gRoot.appendChild(edgeLayer); gRoot.appendChild(nodeLayer);
+    const hullLayer = ns('g'); const edgeLayer = ns('g'); const nodeLayer = ns('g');
+    gRoot.appendChild(hullLayer); gRoot.appendChild(edgeLayer); gRoot.appendChild(nodeLayer);
+
+    // one labelled box per company, drawn behind everything else
+    companyEls = companies.map((c, i) => {
+      const rect = ns('rect');
+      rect.setAttribute('rx', '14');
+      rect.setAttribute('fill', 'var(--group-' + (i % 8) + ')');
+      rect.setAttribute('fill-opacity', '0.06');
+      rect.setAttribute('stroke', 'var(--group-' + (i % 8) + ')');
+      rect.setAttribute('stroke-width', '1.4');
+      rect.setAttribute('stroke-dasharray', '6,4');
+      const text = ns('text');
+      text.textContent = c.side ? c.name + '  \u00b7  ' + c.side : c.name;
+      text.setAttribute('font-size', '11.5');
+      text.setAttribute('font-weight', '500');
+      text.setAttribute('font-family', 'IBM Plex Sans Condensed, sans-serif');
+      text.setAttribute('fill', 'var(--group-' + (i % 8) + ')');
+      hullLayer.appendChild(rect); hullLayer.appendChild(text);
+      return { c, rect, text };
+    });
 
     edgeEls = edges.map(e => {
       const line = ns('line');
-      line.setAttribute('stroke', 'var(--border-strong)');
-      line.setAttribute('stroke-width', '1.2');
-      line.setAttribute('opacity', '0.6');
-      line.setAttribute('marker-end', 'url(#arrowhead)');
+      const heavy = !!e.weight;   // company-to-company lines read like the weight card
+      line.setAttribute('stroke', heavy ? 'var(--wire)' : 'var(--border-strong)');
+      line.setAttribute('stroke-width', heavy ? '2.6' : '1.2');
+      line.setAttribute('opacity', heavy ? '1' : '0.6');
+      line.setAttribute('marker-end', heavy ? 'url(#arrowhead-heavy)' : 'url(#arrowhead)');
       if (e.dashed) line.setAttribute('stroke-dasharray', '4,3');
+      else if (e.dotted) line.setAttribute('stroke-dasharray', '1.5,3');
       edgeLayer.appendChild(line);
+
+      // strategic weight, drawn as a symbol at the midpoint:
+      // low = empty circle, medium = ringed, high = filled
+      let wOuter = null, wInner = null;
+      if (e.weight === 'low' || e.weight === 'medium' || e.weight === 'high'){
+        wOuter = ns('circle');
+        wOuter.setAttribute('r', '7');
+        wOuter.setAttribute('stroke', 'var(--wire)');
+        wOuter.setAttribute('stroke-width', '2.2');
+        wOuter.setAttribute('fill', e.weight === 'high' ? 'var(--wire)' : 'var(--surface)');
+        edgeLayer.appendChild(wOuter);
+        if (e.weight === 'medium'){
+          wInner = ns('circle');
+          wInner.setAttribute('r', '3');
+          wInner.setAttribute('fill', 'var(--wire)');
+          edgeLayer.appendChild(wInner);
+        }
+      }
 
       // no text is ever drawn on an edge - every relationship detail is read
       // from the node hover box instead
-      return { e, line };
+      return { e, line, wOuter, wInner };
     });
 
     nodeEls = nodes.map(n => {
       const g = ns('g');
       g.style.cursor = 'pointer';
-      const circle = ns('circle');
-      circle.setAttribute('r', n.group === 'role' ? 5 : 9);
-      circle.setAttribute('fill', groupVar(n.group));
-      circle.setAttribute('stroke', 'var(--surface)');
-      circle.setAttribute('stroke-width', '1.5');
       const text = ns('text');
       text.textContent = n.label;
-      text.setAttribute('font-size', '10.5');
       text.setAttribute('font-family', 'IBM Plex Sans Condensed, sans-serif');
-      text.setAttribute('fill', 'var(--ink)');
-      text.setAttribute('x', 12); text.setAttribute('y', 4);
+      let circle;
+      if (n.shape === 'box'){
+        // a whole organisation drawn as one box - no people inside it
+        const hw = boxHalfW(n), hh = BOX_HALF_H;
+        circle = ns('rect');
+        circle.setAttribute('x', -hw); circle.setAttribute('y', -hh);
+        circle.setAttribute('width', hw*2); circle.setAttribute('height', hh*2);
+        circle.setAttribute('rx', '6');
+        circle.setAttribute('fill', groupVar(n.group));
+        circle.setAttribute('fill-opacity', '0.14');
+        circle.setAttribute('stroke', groupVar(n.group));
+        circle.setAttribute('stroke-width', '1.6');
+        text.setAttribute('font-size', '14');
+        text.setAttribute('font-weight', '600');
+        text.setAttribute('letter-spacing', '.04em');
+        text.setAttribute('fill', 'var(--ink)');
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('x', 0); text.setAttribute('y', 4);
+      } else {
+        circle = ns('circle');
+        circle.setAttribute('r', n.group === 'role' ? 5 : 9);
+        circle.setAttribute('fill', groupVar(n.group));
+        circle.setAttribute('stroke', 'var(--surface)');
+        circle.setAttribute('stroke-width', '1.5');
+        text.setAttribute('font-size', '10.5');
+        text.setAttribute('fill', 'var(--ink)');
+        text.setAttribute('x', 12); text.setAttribute('y', 4);
+      }
       g.appendChild(circle); g.appendChild(text);
       nodeLayer.appendChild(g);
 
@@ -520,10 +611,21 @@
         if (!a || !b) return;
         const dx = b.x - a.x, dy = b.y - a.y;
         const dist = Math.sqrt(dx*dx+dy*dy) || 0.01;
-        const ideal = 90;
+        // boxes are far wider than dots, so they need more room or they overlap
+        const half = (n) => n.shape === 'box' ? boxHalfW(n) : nodeRadius(n);
+        const ideal = 90 + half(a) + half(b);
         const f = (dist - ideal) * 0.02;
         const fx = (dx/dist) * f, fy = (dy/dist) * f;
         a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy;
+      });
+      // pull each company's members toward their own column so the two boxes
+      // sit side by side instead of on top of each other
+      const lanes = companies.length;
+      nodes.forEach(n => {
+        if (n._co !== undefined && lanes > 1){
+          const anchorX = width * (n._co + 1) / (lanes + 1);
+          n.vx += (anchorX - n.x) * 0.035;
+        }
       });
       nodes.forEach(n => {
         n.vx += (width/2 - n.x) * 0.0025;
@@ -533,15 +635,38 @@
         else { n.x += n.vx; n.y += n.vy; }
       });
       nodeEls.forEach(({n, g}) => { g.setAttribute('transform', 'translate(' + n.x.toFixed(1) + ',' + n.y.toFixed(1) + ')'); });
-      edgeEls.forEach(({e, line}) => {
+      edgeEls.forEach(({e, line, wOuter, wInner}) => {
         // stop the line short of both circles so the arrowhead lands OUTSIDE
         // the target node instead of being buried under it
         const dx = e.t.x - e.s.x, dy = e.t.y - e.s.y;
         const dist = Math.sqrt(dx*dx + dy*dy) || 0.01;
         const ux = dx/dist, uy = dy/dist;
-        const rs = nodeRadius(e.s), rt = nodeRadius(e.t); // head lands right on the circle edge
-        line.setAttribute('x1', e.s.x + ux*rs); line.setAttribute('y1', e.s.y + uy*rs);
-        line.setAttribute('x2', e.t.x - ux*rt); line.setAttribute('y2', e.t.y - uy*rt);
+        const rs = edgeStop(e.s, ux, uy), rt = edgeStop(e.t, ux, uy); // lands on the circle or box edge
+        // several relations between the same two boxes must not sit on top of
+        // each other - fan them out along the line's perpendicular
+        const off = (e._fan || 0) * 15;
+        const px = -uy * off, py = ux * off;
+        const x1 = e.s.x + ux*rs + px, y1 = e.s.y + uy*rs + py;
+        const x2 = e.t.x - ux*rt + px, y2 = e.t.y - uy*rt + py;
+        line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+        line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+        if (wOuter){
+          const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+          wOuter.setAttribute('cx', mx); wOuter.setAttribute('cy', my);
+          if (wInner){ wInner.setAttribute('cx', mx); wInner.setAttribute('cy', my); }
+        }
+      });
+      // company boxes hug their members' current positions
+      companyEls.forEach(({c, rect, text}) => {
+        const pts = c.ids.map(id => nodes.find(n => n.id === id)).filter(Boolean);
+        if (!pts.length) return;
+        const pad = 34;
+        const xs = pts.map(n => n.x), ys = pts.map(n => n.y);
+        const x = Math.min(...xs) - pad, y = Math.min(...ys) - pad - 8;
+        rect.setAttribute('x', x); rect.setAttribute('y', y);
+        rect.setAttribute('width', (Math.max(...xs) + pad + 60) - x);
+        rect.setAttribute('height', (Math.max(...ys) + pad) - y);
+        text.setAttribute('x', x + 12); text.setAttribute('y', y + 18);
       });
       ticks++;
       if (ticks < 400) simRaf = requestAnimationFrame(tick);
